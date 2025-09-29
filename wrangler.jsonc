@@ -1,0 +1,9 @@
+{
+  "name": "goodish",
+  "compatibility_date": "2025-09-29",
+  "assets": {
+    "directory": "./dist",
+    "html_handling": "auto-trailing-slash"
+  },
+  "pages_build_output_dir": "./dist"
+}
