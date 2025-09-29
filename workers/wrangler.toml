@@ -1,0 +1,25 @@
+name = "goodish-api"
+main = "api.ts"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
+
+# Worker will be accessible at: https://goodish-api.your-username.workers.dev
+
+# Environment variables
+[env.production.vars]
+ENVIRONMENT = "production"
+
+[env.staging.vars]
+ENVIRONMENT = "staging"
+
+# KV namespaces for caching (optional)
+# [[kv_namespaces]]
+# binding = "ARTICLES_CACHE"
+# id = "your-kv-namespace-id"
+# preview_id = "your-preview-kv-namespace-id"
+
+# D1 database (for future article storage)
+# [[d1_databases]]
+# binding = "DB"
+# database_name = "goodish-db"
+# database_id = "your-database-id"
