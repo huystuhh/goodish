@@ -298,12 +298,12 @@ export class ArticleService {
     let decoded = textarea.value;
 
     // Second pass: handle numeric HTML entities first
-    decoded = decoded.replace(/&#(\d+);/g, (match, num) => {
+    decoded = decoded.replace(/&#(\d+);/g, (_match, num) => {
       return String.fromCharCode(parseInt(num, 10));
     });
 
     // Handle hex numeric entities
-    decoded = decoded.replace(/&#x([0-9a-fA-F]+);/g, (match, hex) => {
+    decoded = decoded.replace(/&#x([0-9a-fA-F]+);/g, (_match, hex) => {
       return String.fromCharCode(parseInt(hex, 16));
     });
 
