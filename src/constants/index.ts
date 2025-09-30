@@ -19,16 +19,16 @@ export const FALLBACK_IMAGES = [
   'https://images.unsplash.com/photo-1518837695005-2083093ee35b?w=800&q=80', // Sunny beach
   'https://images.unsplash.com/photo-1501436513145-30f24e19fcc4?w=800&q=80', // Sunny road
   'https://images.unsplash.com/photo-1558618047-3c8c76ca7d13?w=800&q=80', // Happy yellow flowers
-  'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&q=80', // Green meadow sunrise
   'https://images.unsplash.com/photo-1504681869696-d977211a5f4c?w=800&q=80', // Bright autumn trees
   'https://images.unsplash.com/photo-1502780402662-acc01917738e?w=800&q=80', // Sunny lake reflection
   'https://images.unsplash.com/photo-1417325384643-aac51acc9e5d?w=800&q=80', // Happy garden flowers
-  'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&q=80', // Sunlit forest
   'https://images.unsplash.com/photo-1566041510394-cf7c8fe21800?w=800&q=80', // Bright daisy field
   'https://images.unsplash.com/photo-1554189097-ffe88e998a2b?w=800&q=80', // Sunny butterfly garden
   'https://images.unsplash.com/photo-1500375592092-40eb2168fd21?w=800&q=80', // Golden hour trees
   'https://images.unsplash.com/photo-1527004760525-d49e17cf2dcf?w=800&q=80', // Sunny park bench
   'https://images.unsplash.com/photo-1498081959737-f3ba1af08103?w=800&q=80', // Happy picnic field
+  'https://images.unsplash.com/photo-1419242902214-272b3f66ee7a?w=800&q=80', // Sunny lavender field
+  'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&q=80', // Green meadow
 ];
 
 export const LOADING_JOKES = [
