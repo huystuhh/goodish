@@ -17,10 +17,7 @@ export const FALLBACK_IMAGES = [
   'https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=800&q=80', // Sunflower field
   'https://images.unsplash.com/photo-1465146344425-f00d5f5c8f07?w=800&q=80', // Golden grass sunrise
   'https://images.unsplash.com/photo-1518837695005-2083093ee35b?w=800&q=80', // Sunny beach
-  'https://images.unsplash.com/photo-1501436513145-30f24e19fcc4?w=800&q=80', // Sunny road
-  'https://images.unsplash.com/photo-1558618047-3c8c76ca7d13?w=800&q=80', // Happy yellow flowers
   'https://images.unsplash.com/photo-1504681869696-d977211a5f4c?w=800&q=80', // Bright autumn trees
-  'https://images.unsplash.com/photo-1502780402662-acc01917738e?w=800&q=80', // Sunny lake reflection
   'https://images.unsplash.com/photo-1417325384643-aac51acc9e5d?w=800&q=80', // Happy garden flowers
   'https://images.unsplash.com/photo-1566041510394-cf7c8fe21800?w=800&q=80', // Bright daisy field
   'https://images.unsplash.com/photo-1554189097-ffe88e998a2b?w=800&q=80', // Sunny butterfly garden

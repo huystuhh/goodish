@@ -7,7 +7,8 @@ export class ArticleService {
   private static instance: ArticleService;
   private cachedArticles: Article[] | null = null;
   private lastFetchTime: number = 0;
-  private readonly CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+  private readonly CACHE_DURATION = 30 * 60 * 1000; // 30 minutes - longer cache
+  private usedArticleIds: Set<string> = new Set(); // Track used articles for rotation
 
   static getInstance(): ArticleService {
     if (!ArticleService.instance) {
@@ -18,15 +19,24 @@ export class ArticleService {
 
   async fetchArticles(forceRefresh = false): Promise<ApiResponse<Article[]>> {
     try {
+      // Clear cache if forcing refresh
+      if (forceRefresh) {
+        this.cachedArticles = null;
+        this.lastFetchTime = 0;
+      }
+
       // Check if we have cached articles that are still fresh (unless forcing refresh)
       const now = Date.now();
       if (!forceRefresh && this.cachedArticles && (now - this.lastFetchTime) < this.CACHE_DURATION) {
-        console.log('Using cached articles');
-        return {
-          data: this.cachedArticles,
-          success: true
-        };
+        const rotatedArticles = this.getRotatedArticlesFromCache();
+        if (rotatedArticles.length > 0) {
+          return {
+            data: rotatedArticles,
+            success: true
+          };
+        }
       }
+
 
       // Try to fetch from RSS feeds using a CORS proxy
       const allArticles: Article[] = [];
@@ -34,73 +44,33 @@ export class ArticleService {
       // Shuffle feeds to randomize which ones we try first
       const shuffledFeeds = [...RSS_FEEDS].sort(() => Math.random() - 0.5);
 
-      // Fetch 1 article from each of different random feeds
-      let feedIndex = 0;
-      while (allArticles.length < ARTICLES_PER_PAGE && feedIndex < shuffledFeeds.length) {
-        const feedUrl = shuffledFeeds[feedIndex];
-        feedIndex++;
+      // Fetch from all feeds in parallel for better performance
+      const feedPromises = shuffledFeeds.map(feedUrl => this.fetchSingleFeed(feedUrl));
+      const feedResults = await Promise.allSettled(feedPromises);
 
-        try {
-          // Try multiple CORS proxies
-          const proxies = [
-            `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(feedUrl)}`,
-            `https://corsproxy.io/?${encodeURIComponent(feedUrl)}`,
-            `https://api.allorigins.win/get?url=${encodeURIComponent(feedUrl)}`
-          ];
-
-          let xmlContent = null;
-
-          for (const proxyUrl of proxies) {
-            try {
-              const response = await fetch(proxyUrl, {
-                headers: {
-                  'Accept': 'application/rss+xml, application/xml, text/xml, */*'
-                }
-              });
-
-              if (response.ok) {
-                if (proxyUrl.includes('allorigins')) {
-                  const data = await response.json();
-                  xmlContent = data.contents;
-                } else {
-                  xmlContent = await response.text();
-                }
-
-                if (xmlContent && xmlContent.includes('<rss') || xmlContent.includes('<feed')) {
-                  break; // Found valid RSS content
-                }
-              }
-            } catch (proxyError) {
-              console.warn(`Proxy ${proxyUrl} failed:`, proxyError);
-              continue;
-            }
-          }
-
-          if (xmlContent) {
-            const singleArticle = this.parseRSSFeedSingle(xmlContent, this.getFeedName(feedUrl));
-            if (singleArticle) {
-              allArticles.push(singleArticle);
-            } else {
-              console.warn(`No valid articles found in ${this.getFeedName(feedUrl)}`);
-            }
-          } else {
-            console.warn(`No content received from ${this.getFeedName(feedUrl)}`);
-          }
-        } catch (error) {
-          console.warn(`Failed to fetch from ${feedUrl}:`, error);
+      // Process results and collect articles
+      feedResults.forEach((result, index) => {
+        const feedUrl = shuffledFeeds[index];
+        if (result.status === 'fulfilled' && result.value.length > 0) {
+          // Add all parsed articles from this feed for maximum variety
+          allArticles.push(...result.value);
+        } else {
+          console.warn(`Failed to fetch from ${this.getFeedName(feedUrl)}:`, result.status === 'rejected' ? result.reason : 'No articles found');
         }
-      }
+      });
 
-      // Shuffle the final articles for variety
-      const selectedArticles = this.shuffleArray(allArticles);
+      // Select articles ensuring source diversity
+      const selectedArticles = this.selectDiverseArticles(allArticles, ARTICLES_PER_PAGE);
 
       // If we got some articles from RSS, use them, otherwise fall back to mock data
-      if (selectedArticles.length > 0) {
-        console.log('Selected articles sources:', selectedArticles.map(a => a.source));
-
-        // Cache the selected articles
-        this.cachedArticles = selectedArticles;
+      if (allArticles.length > 0) {
+        // Cache all fetched articles for rotation, return selected ones
+        this.cachedArticles = allArticles;
         this.lastFetchTime = now;
+        // Reset used articles when we get fresh content
+        this.usedArticleIds.clear();
+        // Mark the selected articles as used
+        selectedArticles.forEach(article => this.usedArticleIds.add(article.id));
 
         return {
           data: selectedArticles,
@@ -108,7 +78,6 @@ export class ArticleService {
         };
       }
 
-      console.log('No RSS articles fetched, using mock data');
 
       // Fallback to mock data
       await this.delay(1000); // Simulate network delay
@@ -191,6 +160,180 @@ export class ArticleService {
 
   private delay(ms: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  private async fetchSingleFeed(feedUrl: string): Promise<Article[]> {
+    try {
+      // Try multiple CORS proxies
+      const proxies = [
+        `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(feedUrl)}`,
+        `https://corsproxy.io/?${encodeURIComponent(feedUrl)}`,
+        `https://api.allorigins.win/get?url=${encodeURIComponent(feedUrl)}`
+      ];
+
+      let xmlContent = null;
+
+      for (const proxyUrl of proxies) {
+        try {
+          const response = await fetch(proxyUrl, {
+            headers: {
+              'Accept': 'application/rss+xml, application/xml, text/xml, */*'
+            }
+          });
+
+          if (response.ok) {
+            if (proxyUrl.includes('allorigins')) {
+              const data = await response.json();
+              xmlContent = data.contents;
+            } else {
+              xmlContent = await response.text();
+            }
+
+            if (xmlContent && (xmlContent.includes('<rss') || xmlContent.includes('<feed'))) {
+              break; // Found valid RSS content
+            }
+          }
+        } catch (proxyError) {
+            continue;
+        }
+      }
+
+      if (xmlContent) {
+        const feedArticles = this.parseRSSFeedMultiple(xmlContent, this.getFeedName(feedUrl));
+        return feedArticles;
+      } else {
+        return [];
+      }
+    } catch (error) {
+      return [];
+    }
+  }
+
+  private getRotatedArticlesFromCache(): Article[] {
+    if (!this.cachedArticles) return [];
+
+    // Find articles we haven't used yet
+    const unusedArticles = this.cachedArticles.filter(article =>
+      !this.usedArticleIds.has(article.id)
+    );
+
+    if (unusedArticles.length === 0) {
+      // All articles have been used, reset and start over
+      this.usedArticleIds.clear();
+      return this.getRotatedArticlesFromCache();
+    }
+
+    // Select diverse articles from unused ones
+    const selectedArticles = this.selectDiverseArticles(unusedArticles, ARTICLES_PER_PAGE);
+
+    // Mark them as used
+    selectedArticles.forEach(article => this.usedArticleIds.add(article.id));
+
+    return selectedArticles;
+  }
+
+  private parseRSSFeedMultiple(xmlText: string, sourceName: string): Article[] {
+    try {
+      // Clean up the XML text
+      const cleanXml = xmlText
+        .replace(/&(?!(?:amp|lt|gt|quot|apos);)/g, '&amp;') // Fix unescaped ampersands
+        .trim();
+
+      // Create a DOM parser
+      const parser = new DOMParser();
+      const xmlDoc = parser.parseFromString(cleanXml, 'text/xml');
+
+      // Check for parsing errors
+      const parserError = xmlDoc.querySelector('parsererror');
+      if (parserError) {
+        console.warn('XML parsing error:', parserError.textContent);
+        return [];
+      }
+
+      // Get all item elements
+      const items = xmlDoc.querySelectorAll('item');
+      const articles: Article[] = [];
+
+      // Parse up to 10 articles from this feed
+      const maxArticles = Math.min(10, items.length);
+      for (let index = 0; index < maxArticles; index++) {
+        const item = items[index];
+        const title = item.querySelector('title')?.textContent?.trim();
+        const link = item.querySelector('link')?.textContent?.trim();
+        const description = item.querySelector('description')?.textContent?.trim();
+        const pubDate = item.querySelector('pubDate')?.textContent?.trim();
+
+        if (title && link && description) {
+          // Extract image using same logic as before
+          const contentEncoded = item.querySelector('content\\:encoded, encoded')?.textContent;
+          const mediaContent = item.querySelector('media\\:content, content')?.getAttribute('url');
+          const mediaThumbnail = item.querySelector('media\\:thumbnail')?.getAttribute('url');
+          const enclosure = item.querySelector('enclosure')?.getAttribute('url');
+          let imageUrl = mediaContent || mediaThumbnail;
+
+          // Try to extract image from enclosure
+          if (!imageUrl && enclosure && enclosure.match(/\.(jpg|jpeg|png|gif|webp)$/i)) {
+            imageUrl = enclosure;
+          }
+
+          // Try to extract image from description HTML
+          if (!imageUrl && description) {
+            const imgPatterns = [
+              /<img[^>]+src=["']([^"'>]+)["']/i,
+              /<img[^>]+src=([^\s>]+)/i,
+              /src=["']([^"'>]+\.(?:jpg|jpeg|png|gif|webp))["']/i
+            ];
+
+            for (const pattern of imgPatterns) {
+              const match = description.match(pattern);
+              if (match) {
+                imageUrl = match[1];
+                break;
+              }
+            }
+          }
+
+          // Try to extract image from content:encoded
+          if (!imageUrl && contentEncoded) {
+            const imgPatterns = [
+              /<img[^>]+src=["']([^"'>]+)["']/i,
+              /<img[^>]+src=([^\s>]+)/i,
+              /src=["']([^"'>]+\.(?:jpg|jpeg|png|gif|webp))["']/i
+            ];
+
+            for (const pattern of imgPatterns) {
+              const match = contentEncoded.match(pattern);
+              if (match) {
+                imageUrl = match[1];
+                break;
+              }
+            }
+          }
+
+          // Fallback: use a placeholder image if no image found
+          if (!imageUrl) {
+            imageUrl = FALLBACK_IMAGES[index % FALLBACK_IMAGES.length];
+          }
+
+          articles.push({
+            id: `rss-${sourceName}-${index}-${Date.now()}`,
+            title: this.cleanText(title),
+            excerpt: this.cleanText(description).substring(0, 300) + (description.length > 300 ? '...' : ''),
+            url: link,
+            source: sourceName,
+            publishedDate: pubDate ? new Date(pubDate).toISOString() : new Date().toISOString(),
+            imageUrl: imageUrl || undefined,
+            sentiment: 'positive',
+            tags: ['news', 'positive']
+          });
+        }
+      }
+
+      return articles;
+    } catch (error) {
+      console.error('Error parsing RSS feed:', error);
+      return [];
+    }
   }
 
   private parseRSSFeedSingle(xmlText: string, sourceName: string): Article | null {
@@ -344,6 +487,53 @@ export class ArticleService {
     if (feedUrl.includes('reasonstobecheerful')) return 'Reasons to be Cheerful';
     if (feedUrl.includes('notallnewsisbad')) return 'Not All News is Bad';
     return 'Good News Source';
+  }
+
+  private selectDiverseArticles(allArticles: Article[], targetCount: number): Article[] {
+    if (allArticles.length === 0) return [];
+
+    // Group articles by source
+    const articlesBySource = new Map<string, Article[]>();
+    for (const article of allArticles) {
+      if (!articlesBySource.has(article.source)) {
+        articlesBySource.set(article.source, []);
+      }
+      articlesBySource.get(article.source)!.push(article);
+    }
+
+    // Shuffle articles within each source
+    for (const [source, articles] of articlesBySource.entries()) {
+      articlesBySource.set(source, this.shuffleArray(articles));
+    }
+
+    // Select articles round-robin from different sources
+    const selected: Article[] = [];
+    const sources = Array.from(articlesBySource.keys());
+    let sourceIndex = 0;
+
+    while (selected.length < targetCount && selected.length < allArticles.length) {
+      const currentSource = sources[sourceIndex % sources.length];
+      const sourceArticles = articlesBySource.get(currentSource)!;
+
+      // Find an article from this source that we haven't selected yet
+      const availableArticles = sourceArticles.filter(article =>
+        !selected.some(selected => selected.id === article.id)
+      );
+
+      if (availableArticles.length > 0) {
+        selected.push(availableArticles[0]);
+      }
+
+      sourceIndex++;
+
+      // If we've gone through all sources and still need more articles,
+      // break to avoid infinite loop
+      if (sourceIndex >= sources.length * targetCount) {
+        break;
+      }
+    }
+
+    return selected;
   }
 
   private shuffleArray<T>(array: T[]): T[] {
