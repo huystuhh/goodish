@@ -316,7 +316,7 @@ export class ArticleService {
           }
 
           articles.push({
-            id: `rss-${sourceName}-${index}-${Date.now()}`,
+            id: `rss-${sourceName}-${index}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
             title: this.cleanText(title),
             excerpt: this.cleanText(description).substring(0, 300) + (description.length > 300 ? '...' : ''),
             url: link,
@@ -521,7 +521,9 @@ export class ArticleService {
       );
 
       if (availableArticles.length > 0) {
-        selected.push(availableArticles[0]);
+        // Pick a random article from available ones instead of always the first
+        const randomIndex = Math.floor(Math.random() * availableArticles.length);
+        selected.push(availableArticles[randomIndex]);
       }
 
       sourceIndex++;
