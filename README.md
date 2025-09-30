@@ -37,8 +37,8 @@ Open `http://localhost:5173` in your browser.
 
 Edit `src/constants/index.ts` to modify:
 - RSS feeds (`RSS_FEEDS`)
-- Dad jokes (`LOADING_JOKES`)
-- Fallback images (`FALLBACK_IMAGES`)
+- Jokes (`LOADING_JOKES`)
+- Images (`FALLBACK_IMAGES`)
 
 ## License
 
