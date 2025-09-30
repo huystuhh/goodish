@@ -34,8 +34,11 @@ export class ArticleService {
       // Shuffle feeds to randomize which ones we try first
       const shuffledFeeds = [...RSS_FEEDS].sort(() => Math.random() - 0.5);
 
-      // Try to fetch from all feeds (not limited by ARTICLES_PER_PAGE) to get variety
-      for (const feedUrl of shuffledFeeds) {
+      // Fetch 1 article from each of different random feeds
+      let feedIndex = 0;
+      while (allArticles.length < ARTICLES_PER_PAGE && feedIndex < shuffledFeeds.length) {
+        const feedUrl = shuffledFeeds[feedIndex];
+        feedIndex++;
 
         try {
           // Try multiple CORS proxies
@@ -74,9 +77,12 @@ export class ArticleService {
           }
 
           if (xmlContent) {
-            const parsedArticles = this.parseRSSFeed(xmlContent, this.getFeedName(feedUrl));
-            console.log(`Fetched ${parsedArticles.length} articles from ${this.getFeedName(feedUrl)}`);
-            allArticles.push(...parsedArticles);
+            const singleArticle = this.parseRSSFeedSingle(xmlContent, this.getFeedName(feedUrl));
+            if (singleArticle) {
+              allArticles.push(singleArticle);
+            } else {
+              console.warn(`No valid articles found in ${this.getFeedName(feedUrl)}`);
+            }
           } else {
             console.warn(`No content received from ${this.getFeedName(feedUrl)}`);
           }
@@ -85,12 +91,11 @@ export class ArticleService {
         }
       }
 
-      // Randomly select articles from all fetched articles
-      const selectedArticles = this.shuffleArray(allArticles).slice(0, ARTICLES_PER_PAGE);
+      // Shuffle the final articles for variety
+      const selectedArticles = this.shuffleArray(allArticles);
 
       // If we got some articles from RSS, use them, otherwise fall back to mock data
       if (selectedArticles.length > 0) {
-        console.log(`Total articles fetched: ${allArticles.length}, selected: ${selectedArticles.length}`);
         console.log('Selected articles sources:', selectedArticles.map(a => a.source));
 
         // Cache the selected articles
@@ -186,6 +191,107 @@ export class ArticleService {
 
   private delay(ms: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  private parseRSSFeedSingle(xmlText: string, sourceName: string): Article | null {
+    try {
+      // Clean up the XML text
+      const cleanXml = xmlText
+        .replace(/&(?!(?:amp|lt|gt|quot|apos);)/g, '&amp;') // Fix unescaped ampersands
+        .trim();
+
+      // Create a DOM parser
+      const parser = new DOMParser();
+      const xmlDoc = parser.parseFromString(cleanXml, 'text/xml');
+
+      // Check for parsing errors
+      const parserError = xmlDoc.querySelector('parsererror');
+      if (parserError) {
+        console.warn('XML parsing error:', parserError.textContent);
+        return null;
+      }
+
+      // Get all item elements
+      const items = xmlDoc.querySelectorAll('item');
+
+      // Try to find the first valid article
+      for (let index = 0; index < items.length; index++) {
+        const item = items[index];
+        const title = item.querySelector('title')?.textContent?.trim();
+        const link = item.querySelector('link')?.textContent?.trim();
+        const description = item.querySelector('description')?.textContent?.trim();
+        const pubDate = item.querySelector('pubDate')?.textContent?.trim();
+
+        if (title && link && description) {
+          // Extract image using same logic as full parser
+          const contentEncoded = item.querySelector('content\\:encoded, encoded')?.textContent;
+          const mediaContent = item.querySelector('media\\:content, content')?.getAttribute('url');
+          const mediaThumbnail = item.querySelector('media\\:thumbnail')?.getAttribute('url');
+          const enclosure = item.querySelector('enclosure')?.getAttribute('url');
+          let imageUrl = mediaContent || mediaThumbnail;
+
+          // Try to extract image from enclosure
+          if (!imageUrl && enclosure && enclosure.match(/\.(jpg|jpeg|png|gif|webp)$/i)) {
+            imageUrl = enclosure;
+          }
+
+          // Try to extract image from description HTML
+          if (!imageUrl && description) {
+            const imgPatterns = [
+              /<img[^>]+src=["']([^"'>]+)["']/i,
+              /<img[^>]+src=([^\s>]+)/i,
+              /src=["']([^"'>]+\.(?:jpg|jpeg|png|gif|webp))["']/i
+            ];
+
+            for (const pattern of imgPatterns) {
+              const match = description.match(pattern);
+              if (match) {
+                imageUrl = match[1];
+                break;
+              }
+            }
+          }
+
+          // Try to extract image from content:encoded
+          if (!imageUrl && contentEncoded) {
+            const imgPatterns = [
+              /<img[^>]+src=["']([^"'>]+)["']/i,
+              /<img[^>]+src=([^\s>]+)/i,
+              /src=["']([^"'>]+\.(?:jpg|jpeg|png|gif|webp))["']/i
+            ];
+
+            for (const pattern of imgPatterns) {
+              const match = contentEncoded.match(pattern);
+              if (match) {
+                imageUrl = match[1];
+                break;
+              }
+            }
+          }
+
+          // Fallback: use a placeholder image if no image found
+          if (!imageUrl) {
+            imageUrl = FALLBACK_IMAGES[index % FALLBACK_IMAGES.length];
+          }
+
+          return {
+            id: `rss-${sourceName}-${index}-${Date.now()}`,
+            title: this.cleanText(title),
+            excerpt: this.cleanText(description).substring(0, 300) + (description.length > 300 ? '...' : ''),
+            url: link,
+            source: sourceName,
+            publishedDate: pubDate ? new Date(pubDate).toISOString() : new Date().toISOString(),
+            imageUrl: imageUrl || undefined,
+            sentiment: 'positive',
+            tags: ['news', 'positive']
+          };
+        }
+      }
+    } catch (error) {
+      console.error('Error parsing RSS feed:', error);
+    }
+
+    return null;
   }
 
   private parseRSSFeed(xmlText: string, sourceName: string): Article[] {

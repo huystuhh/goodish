@@ -92,6 +92,9 @@ function AppContent() {
       <Header />
       <ArticleViewer />
       <Navigation />
+      <footer className="attribution">
+        <a href="https://www.flaticon.com/packs/emoji-310" title="smile icons" target="_blank">Favicon by Illosalz</a>
+      </footer>
     </div>
   );
 }

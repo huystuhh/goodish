@@ -513,3 +513,22 @@ body {
     border: 2px solid #000;
   }
 }
+
+/* Attribution footer */
+.attribution {
+  text-align: center;
+  padding: 5px;
+  margin-top: 10px;
+}
+
+.attribution a {
+  color: rgba(255, 255, 255, 0.6);
+  text-decoration: none;
+  font-size: 0.7rem;
+  opacity: 0.7;
+  transition: opacity 0.3s ease;
+}
+
+.attribution a:hover {
+  opacity: 1;
+}
