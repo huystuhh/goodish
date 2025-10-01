@@ -1,4 +1,4 @@
-export const ARTICLES_PER_PAGE = 3;
+export const ARTICLES_PER_PAGE = 1;
 
 export const RSS_FEEDS = [
   'https://www.goodnewsnetwork.org/category/news/feed/',

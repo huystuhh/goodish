@@ -24,7 +24,18 @@ const ArticleCard: React.FC<ArticleCardProps> = ({ article }) => {
 
 
   return (
-    <article className="article-card">
+    <article
+      className="article-card clickable-card"
+      onClick={handleReadOriginal}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          handleReadOriginal();
+        }
+      }}
+    >
       {article.imageUrl && (
         <div className="article-image">
           <img
@@ -65,13 +76,9 @@ const ArticleCard: React.FC<ArticleCardProps> = ({ article }) => {
           <p className="article-excerpt">{article.excerpt}</p>
         </div>
 
-        <div className="article-actions">
-          <button
-            onClick={handleReadOriginal}
-            className="btn btn-primary"
-          >
-            Read
-          </button>
+        <div className="article-read-hint">
+          <span className="desktop-read-text">Click to read full article</span>
+          <span className="mobile-read-text">Tap to read full article</span>
         </div>
       </div>
     </article>

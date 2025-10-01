@@ -5,6 +5,16 @@
   box-sizing: border-box;
 }
 
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  height: 100vh;
+  height: 100dvh; /* Dynamic viewport height for mobile */
+  overflow-x: hidden;
+  position: relative;
+}
+
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
   background: linear-gradient(135deg, #6baa75, #69747c, #6baa75);
@@ -15,16 +25,19 @@ body {
 
 #root {
   min-height: 100vh;
+  height: 100vh;
   width: 100%;
   display: flex;
   justify-content: center;
+  margin: 0;
+  padding: 0;
 }
 
 /* App Layout */
 .app {
   max-width: 900px;
   margin: 0 auto;
-  padding: 20px;
+  padding: 20px 20px 0px 20px; /* Removed bottom padding on mobile */
   min-height: 100vh;
   display: flex;
   flex-direction: column;
@@ -107,8 +120,9 @@ body {
 /* Article Viewer */
 .article-viewer {
   flex: 1;
-  margin-bottom: 30px;
   width: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 .articles-grid {
@@ -118,6 +132,8 @@ body {
   width: 100%;
   max-width: 1400px;
   margin: 0 auto;
+  flex: 1;
+  padding-bottom: 80px; /* Space for desktop bottom nav */
 }
 
 /* Tablet and mobile: single column */
@@ -126,11 +142,16 @@ body {
     grid-template-columns: 1fr;
     gap: 20px;
     max-width: 500px;
-    margin: 0 auto;
+    margin: 0 auto 20px auto; /* Add bottom margin for space above nav */
+    padding-bottom: 0px;
   }
 
   .app {
-    padding: 30px;
+    padding: 20px 20px 0px 20px; /* Remove bottom padding */
+  }
+
+  .article-viewer {
+    margin-bottom: 0;
   }
 }
 
@@ -145,14 +166,19 @@ body {
   height: 100%;
 }
 
-.article-card:hover {
+.clickable-card {
+  cursor: pointer;
+  user-select: none;
+}
+
+.article-card:hover, .clickable-card:hover {
   transform: translateY(-5px);
   box-shadow: 0 25px 50px rgba(0, 0, 0, 0.15);
 }
 
 .article-image {
   width: 100%;
-  height: 180px;
+  height: 280px; /* Increased for better 16:9-ish ratio */
   overflow: hidden;
   position: relative;
 }
@@ -169,14 +195,14 @@ body {
 }
 
 .article-content {
-  padding: 30px;
+  padding: 45px;
   display: flex;
   flex-direction: column;
   flex: 1;
 }
 
 .article-header {
-  margin-bottom: 20px;
+  margin-bottom: 25px;
 }
 
 .article-title {
@@ -226,7 +252,7 @@ body {
 
 .article-body {
   flex: 1;
-  margin-bottom: 20px;
+  margin-bottom: 25px;
 }
 
 .article-excerpt {
@@ -234,15 +260,38 @@ body {
   line-height: 1.6;
   color: #444;
   display: -webkit-box;
-  -webkit-line-clamp: 4;
+  -webkit-line-clamp: 6; /* Increased from 4 to 6 lines */
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
 
-.article-actions {
-  display: flex;
-  justify-content: center;
+.article-read-hint {
+  text-align: center;
   margin-top: auto;
+  padding-top: 10px;
+  font-size: 0.85rem;
+  color: #6baa75;
+  font-style: bold;
+  font-weight: 500;
+}
+
+/* Desktop/Mobile read text switching */
+.mobile-read-text {
+  display: none;
+}
+
+.desktop-read-text {
+  display: inline;
+}
+
+@media (hover: none) and (pointer: coarse) {
+  .mobile-read-text {
+    display: inline;
+  }
+
+  .desktop-read-text {
+    display: none;
+  }
 }
 
 /* Buttons */
@@ -272,82 +321,105 @@ body {
   box-shadow: 0 8px 25px rgba(107, 170, 117, 0.3);
 }
 
-/* Navigation */
-.navigation {
+/* Bottom Navigation Bar */
+.floating-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  width: 100vw;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 15px;
-  padding: 20px;
-}
-
-.progress-container {
-  margin-bottom: 20px;
-}
-
-.progress-bar {
-  width: 100%;
-  height: 8px;
-  background: #e0e4e7;
-  border-radius: 4px;
-  overflow: hidden;
-  margin-bottom: 10px;
-}
-
-.progress-fill {
-  height: 100%;
-  background: linear-gradient(90deg, #667eea, #764ba2);
-  border-radius: 4px;
-  transition: width 0.3s ease;
-}
-
-.progress-text {
-  font-size: 0.9rem;
-  color: #666;
-  text-align: center;
-  display: block;
-  font-weight: 500;
-}
-
-
-.nav-btn {
-  padding: 15px 30px;
-  background: #6baa75;
-  color: white;
-  border: none;
-  border-radius: 12px;
-  font-size: 1.1rem;
-  font-weight: 600;
+  gap: 8px;
+  z-index: 1000;
+  backdrop-filter: blur(10px);
+  background: rgba(107, 170, 117, 0.95);
+  padding: 15px 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.1);
   cursor: pointer;
   transition: all 0.3s ease;
-  min-width: 200px;
+  user-select: none;
+  margin: 0;
+  transform: translateY(0);
 }
 
-.nav-btn:hover:not(:disabled) {
-  background: #84dd63;
-  transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(107, 170, 117, 0.3);
+.floating-nav:hover:not(.loading) {
+  background: rgba(107, 170, 117, 1);
+  transform: scale(1.02);
+  box-shadow: 0 -6px 30px rgba(0, 0, 0, 0.15);
 }
 
-.nav-btn:disabled {
-  background: #ccc;
+.floating-nav.loading {
   cursor: not-allowed;
-  transform: none;
-  box-shadow: none;
+  background: rgba(107, 170, 117, 0.7);
 }
 
-.keyboard-hint {
-  text-align: center;
-  font-size: 0.8rem;
+.floating-nav-text {
+  font-size: 1rem;
+  font-weight: 600;
   color: white;
+}
+
+/* Desktop/Mobile text switching */
+.mobile-text {
+  display: none;
+}
+
+.desktop-text {
+  display: inline;
+}
+
+@media (hover: none) and (pointer: coarse) {
+  .mobile-text {
+    display: inline;
+  }
+
+  .desktop-text {
+    display: none;
+  }
+}
+
+.floating-nav-hint {
+  text-align: center;
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.9);
   font-style: italic;
-  opacity: 0.8;
+  font-weight: 400;
 }
 
 /* Hide keyboard hint on touch devices */
 @media (hover: none) and (pointer: coarse) {
-  .keyboard-hint {
+  .floating-nav-hint {
     display: none;
+  }
+}
+
+/* Mobile adjustments for floating nav */
+@media (max-width: 768px) {
+  .floating-nav {
+    bottom: 0;
+    bottom: 0px;
+    bottom: env(safe-area-inset-bottom, 0px); /* Account for mobile notches */
+    padding: 20px 24px; /* Increased padding for bigger nav */
+    position: fixed;
+    margin-bottom: 0;
+  }
+
+  .floating-nav-text {
+    font-size: 1.1rem; /* Larger text on mobile */
+    font-weight: 600;
+  }
+
+  .floating-nav-hint {
+    font-size: 0.8rem; /* Slightly larger hint text */
+  }
+
+  /* Force body to not have any bottom spacing on mobile */
+  body {
+    padding-bottom: 0 !important;
+    margin-bottom: 0 !important;
   }
 }
 
@@ -402,11 +474,11 @@ body {
 
   .article-excerpt {
     font-size: 1rem;
-    -webkit-line-clamp: 5;
+    -webkit-line-clamp: 6; /* Consistent with desktop */
   }
 
   .article-image {
-    height: 220px;
+    height: 320px;
   }
 }
 
@@ -438,7 +510,7 @@ body {
 
   .article-excerpt {
     font-size: 0.95rem;
-    -webkit-line-clamp: 4;
+    -webkit-line-clamp: 6; /* Increased from 4 to 6 lines - same as desktop */
   }
 
   .navigation {
@@ -451,7 +523,7 @@ body {
   }
 
   .article-image {
-    height: 200px;
+    height: 280px;
   }
 
   .error-container,
@@ -516,7 +588,7 @@ body {
 
 /* Attribution footer */
 .attribution {
-  text-align: center;
+  text-align: right;
   padding: 5px;
   margin-top: 10px;
 }

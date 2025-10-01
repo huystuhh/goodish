@@ -9,6 +9,7 @@ export class ArticleService {
   private lastFetchTime: number = 0;
   private readonly CACHE_DURATION = 30 * 60 * 1000; // 30 minutes - longer cache
   private usedArticleIds: Set<string> = new Set(); // Track used articles for rotation
+  private ongoingFetch: Promise<ApiResponse<Article[]>> | null = null; // Prevent duplicate fetches
 
   static getInstance(): ArticleService {
     if (!ArticleService.instance) {
@@ -18,6 +19,24 @@ export class ArticleService {
   }
 
   async fetchArticles(forceRefresh = false): Promise<ApiResponse<Article[]>> {
+    // If there's already an ongoing fetch, return that promise to avoid duplicates
+    if (!forceRefresh && this.ongoingFetch) {
+      return this.ongoingFetch;
+    }
+
+    // Start the fetch process and store the promise
+    this.ongoingFetch = this.performFetch(forceRefresh);
+
+    try {
+      const result = await this.ongoingFetch;
+      return result;
+    } finally {
+      // Clear the ongoing fetch when done
+      this.ongoingFetch = null;
+    }
+  }
+
+  private async performFetch(forceRefresh: boolean): Promise<ApiResponse<Article[]>> {
     try {
       // Clear cache if forcing refresh
       if (forceRefresh) {
@@ -41,23 +60,23 @@ export class ArticleService {
       // Try to fetch from RSS feeds using a CORS proxy
       const allArticles: Article[] = [];
 
-      // Shuffle feeds to randomize which ones we try first
+      // For single article mode, just pick one random feed and fetch from it
+      // This is much faster than fetching from all feeds
       const shuffledFeeds = [...RSS_FEEDS].sort(() => Math.random() - 0.5);
 
-      // Fetch from all feeds in parallel for better performance
-      const feedPromises = shuffledFeeds.map(feedUrl => this.fetchSingleFeed(feedUrl));
-      const feedResults = await Promise.allSettled(feedPromises);
-
-      // Process results and collect articles
-      feedResults.forEach((result, index) => {
-        const feedUrl = shuffledFeeds[index];
-        if (result.status === 'fulfilled' && result.value.length > 0) {
-          // Add all parsed articles from this feed for maximum variety
-          allArticles.push(...result.value);
-        } else {
-          console.warn(`Failed to fetch from ${this.getFeedName(feedUrl)}:`, result.status === 'rejected' ? result.reason : 'No articles found');
+      // Try feeds one by one until we get articles
+      for (const feedUrl of shuffledFeeds) {
+        try {
+          const feedArticles = await this.fetchSingleFeed(feedUrl);
+          if (feedArticles.length > 0) {
+            allArticles.push(...feedArticles);
+            break; // Stop after first successful feed for speed
+          }
+        } catch (error) {
+          console.warn(`Failed to fetch from ${this.getFeedName(feedUrl)}:`, error);
+          continue; // Try next feed
         }
-      });
+      }
 
       // Select articles ensuring source diversity
       const selectedArticles = this.selectDiverseArticles(allArticles, ARTICLES_PER_PAGE);
@@ -318,7 +337,7 @@ export class ArticleService {
           articles.push({
             id: `rss-${sourceName}-${index}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
             title: this.cleanText(title),
-            excerpt: this.cleanText(description).substring(0, 300) + (description.length > 300 ? '...' : ''),
+            excerpt: this.cleanText(description).substring(0, 800) + (description.length > 800 ? '...' : ''),
             url: link,
             source: sourceName,
             publishedDate: pubDate ? new Date(pubDate).toISOString() : new Date().toISOString(),

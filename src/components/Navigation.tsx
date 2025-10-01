@@ -9,18 +9,30 @@ export const Navigation: React.FC = () => {
   };
 
   return (
-    <div className="navigation">
-      <button
-        onClick={handleNextBatch}
-        className="nav-btn"
-        aria-label="Load next batch of articles"
-        disabled={isLoading}
-      >
-        {isLoading ? 'Loading...' : 'More Goodish'}
-      </button>
+    <div
+      className={`floating-nav ${isLoading ? 'loading' : ''}`}
+      onClick={!isLoading ? handleNextBatch : undefined}
+      role="button"
+      tabIndex={0}
+      aria-label="Load next batch of articles"
+      onKeyDown={(e) => {
+        if ((e.key === 'Enter' || e.key === ' ') && !isLoading) {
+          e.preventDefault();
+          handleNextBatch();
+        }
+      }}
+    >
+      <div className="floating-nav-text">
+        {isLoading ? 'Loading...' : (
+          <>
+            <span className="desktop-text">Click here for more Goodish</span>
+            <span className="mobile-text">Tap here for more Goodish</span>
+          </>
+        )}
+      </div>
 
-      <div className="keyboard-hint">
-        <span>or just press space.</span>
+      <div className="floating-nav-hint">
+        <span>or press space</span>
       </div>
     </div>
   );
