@@ -14,8 +14,6 @@ A positive news aggregator that displays uplifting articles from RSS feeds. Buil
 ## Getting Started
 
 ```bash
-git clone <your-repo-url>
-cd goodish
 npm install
 npm run dev
 ```
